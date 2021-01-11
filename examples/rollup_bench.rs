@@ -89,6 +89,7 @@ fn merkle_bench(t: usize, c: usize, profile: bool) -> usize {
     let circuit =
         merkle::RollupBench::<Bn256, _>::from_counts(c, t, AltJubjubBn256::new(), Poseidon::default());
 
+    println!("{:?}",circuit.input.unwrap());
     if profile {
         let mut cs = ConstraintProfiler::new();
         circuit.synthesize(&mut cs).expect("synthesis failed");
