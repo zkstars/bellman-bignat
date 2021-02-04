@@ -7,6 +7,7 @@ use hash::circuit::CircuitHasher;
 
 use super::bit::Bit;
 use OptionExt;
+use util::bench::Variable;
 
 pub trait Gadget: Sized + Clone {
     type E: Engine;
@@ -24,6 +25,7 @@ pub trait Gadget: Sized + Clone {
     fn value(&self) -> Option<&Self::Value>;
     fn access(&self) -> &Self::Access;
     fn params(&self) -> &Self::Params;
+    // TODO: we should concern this function
     fn inputize<CS: ConstraintSystem<Self::E>>(&self, mut cs: CS) -> Result<(), SynthesisError> {
         let values = self.wire_values();
         for (i, w) in self.wires().into_iter().enumerate() {
@@ -33,6 +35,20 @@ pub trait Gadget: Sized + Clone {
         }
         Ok(())
     }
+
+    // // we want to get input from cs.
+    // fn fetch_input(&self) -> Result<(Vec<<Self::E as ScalarEngine>::Fr>),SynthesisError> {
+    //    let values = self.wire_values();
+    //     let mut inputVec:Vec<<Self::E as ScalarEngine>::Fr> = vec![];
+    //     for (i, w) in self.wires().into_iter().enumerate() {
+    //         let in_=values.as_ref().grab()?[i].clone();
+    //         inputVec.push(in_);
+    //     }
+    //     Ok((inputVec))
+    // }
+
+
+
 
     fn inputize_hash<CS: ConstraintSystem<Self::E>, H: CircuitHasher<E = Self::E>>(
         &self,

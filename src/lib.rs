@@ -1,5 +1,6 @@
 #![feature(hash_raw_entry)]
 #![feature(test)]
+#![feature(map_into_keys_values)]
 
 extern crate bincode;
 extern crate flate2;
@@ -20,6 +21,7 @@ extern crate quickcheck;
 #[cfg(test)]
 #[macro_use(quickcheck)]
 extern crate quickcheck_macros;
+extern crate core;
 
 #[macro_use]
 pub mod util;

@@ -23,6 +23,12 @@ use OptionExt;
 
 use std::collections::HashMap;
 use std::sync::Arc;
+// use core::num::flt2dec::strategy::grisu::format_exact;
+use sapling_crypto::circuit::Assignment;
+//use util::test_helpers::PrimeField;
+use std::fmt;
+use serde::export::Formatter;
+use std::iter::FromIterator;
 
 #[derive(Derivative)]
 #[derivative(Clone(bound = ""))]
@@ -35,15 +41,40 @@ where
     set: MerkleSet<H>,
 }
 
+
+impl <E,H> fmt::Display for Accounts<E, H>
+where
+    E:JubjubEngine,
+    H:Hasher,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f,"length {}",self.map.len());
+        for account in self.map.values(){
+            write!(f,"account is :{:?}",account);
+        }
+
+
+        write!(f,"set:{}",self.set)
+    }
+}
+
+
 impl<E, H> Accounts<E, H>
 where
     E: JubjubEngine,
     H: Hasher<F = E::Fr>,
 {
     pub fn new(s: &MerkleParams<H>, list_of_accounts: Vec<Account<E>>) -> Self {
+
         let list: Vec<Vec<E::Fr>> = list_of_accounts.iter().map(Account::as_elems).collect();
+        let mut amap = HashMap::new();
+        for account in list_of_accounts.clone(){
+            let mut key = Vec::new();
+            account.id.write(&mut key).unwrap();
+            amap.insert(key,account);
+        }
         Self {
-            map: HashMap::new(),
+            map: amap,
             set: MerkleSet::new_with(s.hasher.clone(), s.depth, list.iter().map(Vec::as_slice)),
         }
     }
@@ -127,6 +158,7 @@ where
             ))
         })?
     };
+
     let amt = AllocatedNum::alloc(cs.namespace(|| "amt"), || {
         Ok(usize_to_f(
             accounts
@@ -136,6 +168,7 @@ where
                 .amt as usize,
         ))
     })?;
+
     Ok(CircuitAccount {
         id: k,
         next_tx_no,
@@ -143,6 +176,7 @@ where
     })
 }
 
+#[derive( Clone)]
 pub struct RollupBenchInputs<E, H>
 where
     E: JubjubEngine,
@@ -153,6 +187,7 @@ where
     /// The initial account state
     pub accounts: Accounts<E, H>,
 }
+
 
 impl<E, H> RollupBenchInputs<E, H>
 where
@@ -203,12 +238,13 @@ where
         }
     }
 }
-
+#[derive(Clone)]
 pub struct MerkleParams<H> {
     pub depth: usize,
     pub hasher: H,
 }
 
+#[derive( Clone)]
 pub struct RollupBenchParams<E, H>
 where
     E: JubjubEngine,
@@ -220,6 +256,7 @@ where
     pub set_params: MerkleParams<H>,
 }
 
+#[derive( Clone)]
 pub struct RollupBench<E, H>
 where
     E: JubjubEngine,
@@ -275,45 +312,48 @@ where
             Some(gen_value),
             &self.params.jj_params,
         )?;
-        let mut removed_accounts = Vec::new();
-        let mut inserted_accounts = Vec::new();
+        let mut removed_accounts:Vec<CircuitAccount<E>> = Vec::new();
+        let mut inserted_accounts:Vec<CircuitAccount<E>> = Vec::new();
         for tx_i in 0..self.params.n_tx {
-            let mut cs = cs.namespace(|| format!("tx {}", tx_i));
+            let mut cs = cs.namespace(|| format!("tx start {}", tx_i));
             let signed_tx = CircuitSignedTx::alloc(
-                cs.namespace(|| "alloc"),
+                cs.namespace(|| format!("alloc{}",tx_i)),
                 self.input.as_ref().map(|i| &i.transactions[tx_i]),
                 (),
                 &self.params.jj_params.clone(),
             )?;
             signed_tx.check_signature(
-                cs.namespace(|| "check sig"),
+                cs.namespace(|| format!("check sig tx{}",tx_i)),
                 &self.params.sig_hasher,
                 gen.clone(),
             )?;
+
             let src_init = allocate_account(
-                cs.namespace(|| "src_init"),
+                cs.namespace(||format!("src_init tx{}",tx_i)),
                 self.input.as_ref().map(|i| &i.accounts),
                 signed_tx.src.clone(),
                 Some(signed_tx.action.tx_no.clone()),
                 self.params.jj_params.as_ref(),
             )?;
             let dst_init = allocate_account(
-                cs.namespace(|| "dst_init"),
+                cs.namespace(|| format!("dst_init{}",tx_i)),
                 self.input.as_ref().map(|i| &i.accounts),
                 signed_tx.action.dst.clone(),
                 None,
                 self.params.jj_params.as_ref(),
             )?;
             let src_final =
-                src_init.with_less(cs.namespace(|| "src delta"), &signed_tx.action.amt)?;
+                src_init.with_less(cs.namespace(|| format!("src delta tx{}",tx_i)), &signed_tx.action.amt)?;
+
             let dst_final =
-                dst_init.with_more(cs.namespace(|| "dst delta"), &signed_tx.action.amt)?;
+                dst_init.with_more(cs.namespace(|| format!("dst delta {}",tx_i)), &signed_tx.action.amt)?;
             removed_accounts.push(src_init);
             removed_accounts.push(dst_init);
             inserted_accounts.push(src_final);
             inserted_accounts.push(dst_final);
         }
 
+        println!("success at account changed");
         let hasher = self.params.set_params.hasher.clone();
         let insertions = inserted_accounts
             .into_iter()
@@ -324,13 +364,19 @@ where
             .map(|act| act.as_elems())
             .collect::<Vec<_>>();
 
+        println!("remove& insert success");
         let set = MerkleCircuitSet::alloc(
             cs.namespace(|| "set init"),
             self.input.as_ref().map(|is| &is.accounts.set),
             hasher,
             &self.params.set_params.depth,
         )?;
-        set.inputize(cs.namespace(|| "initial_state input"))?;
+        println!("init set");
+
+
+
+
+        set.inputize(cs.namespace(|| "initial_state input"))?;//a haha,,, here
         let new_set = set.swap_all(
             cs.namespace(|| "swap"),
             removals
@@ -343,7 +389,7 @@ where
                 .collect(),
         )?;
 
-        new_set.inputize(cs.namespace(|| "final_state input"))?;
+        new_set.inputize(cs.namespace(|| "final_state input"))?;// haha
         Ok(())
     }
 }

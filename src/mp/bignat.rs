@@ -275,6 +275,7 @@ impl<E: Engine> BigNat<E> {
 
     pub fn inputize<CS: ConstraintSystem<E>>(&self, mut cs: CS) -> Result<(), SynthesisError> {
         for (i, l) in self.limbs.iter().enumerate() {
+            println!("an input here");
             let mut c = cs.namespace(|| format!("limb {}", i));
             let v = c.alloc_input(|| "alloc", || Ok(self.limb_values.as_ref().grab()?[i]))?;
             c.enforce(|| "eq", |lc| lc, |lc| lc, |lc| lc + v - l);

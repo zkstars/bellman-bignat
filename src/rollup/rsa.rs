@@ -242,6 +242,15 @@ where
             final_digest,
         }
     }
+    fn fetch_input(&self) -> Result<(Vec<<Self::E as ScalarEngine>::Fr>),SynthesisError> {
+        let values = self.wire_values();
+        let mut input_vec:Vec<<Self::E as ScalarEngine>::Fr> = vec![];
+        for (i, w) in self.wires().into_iter().enumerate() {
+            let in_=values.as_ref().grab()?[i].clone();
+            input_vec.push(in_);
+        }
+        Ok((input_vec))
+    }
 }
 
 pub struct RsaParams<H> {

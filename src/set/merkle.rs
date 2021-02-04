@@ -14,6 +14,8 @@ use hash::Hasher;
 use util::convert::usize_to_f;
 use util::gadget::Gadget;
 use OptionExt;
+use std::fmt;
+use std::fmt::Formatter;
 
 /// Represents a merkle tree in which some prefix of the capacity is occupied.
 /// Unoccupied leaves are assumed to be zero. This allows nodes with no occupied children to have a
@@ -38,6 +40,21 @@ where
     /// Map from a leave to its index in the array of leaves
     pub leaf_indices: BTreeMap<<H::F as PrimeField>::Repr, usize>,
 }
+
+
+impl<H> fmt::Display for MerkleSet<H>
+    where
+        H: Hasher,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let res = self.get_node(0,0);
+
+        write!(f,"worldHash:{}", res)
+    }
+}
+
+
+
 
 impl<H> MerkleSet<H>
 where
@@ -261,7 +278,7 @@ where
             .enumerate()
         {
             let mut cs = cs.namespace(|| format!("swap {}", j));
-
+            println!("check remove {}",j);
             // First, we allocate the path
             let witness = self.value.as_ref().and_then(|v| {
                 old.values
@@ -287,7 +304,7 @@ where
                     })
                     .collect::<Result<Vec<(Boolean, AllocatedNum<E>)>, SynthesisError>>()?
             };
-
+            println!("get path success");
             // Now, check the old item
             {
                 let mut cs = cs.namespace(|| "check old");
@@ -404,7 +421,6 @@ where
         let initial_items = items[..=n_untouched].to_owned();
         let removed_items = items[n_untouched..(n_untouched + n_swaps)].to_owned();
         let inserted_items = items[(n_untouched + 1)..(n_untouched + n_swaps + 1)].to_owned();
-
         Self::new(initial_items, removed_items, inserted_items, hash, depth)
     }
     pub fn new(
@@ -435,6 +451,8 @@ where
             to_insert: inserted,
         }
     }
+
+
 }
 
 #[derive(Clone)]
@@ -454,6 +472,7 @@ where
     pub params: MerkleSetBenchParams<H>,
 }
 
+
 impl<E, H> Circuit<E> for MerkleSetBench<H>
 where
     E: Engine,
@@ -469,7 +488,7 @@ where
             self.params.hash.clone(),
             &self.params.depth,
         )?;
-        set.inputize(cs.namespace(|| "initial_state input"))?;
+        set.inputize(cs.namespace(|| "initial_state input"))?;//TODO: we have an inputize here.
         if self.params.verbose {
             println!("Allocating Deletions...");
         }
@@ -515,7 +534,7 @@ where
         if self.params.verbose {
             println!("Verifying resulting digest");
         }
-        new_set.inputize(cs.namespace(|| "final_state input"))?;
+        new_set.inputize(cs.namespace(|| "final_state input"))?;//TODO: we have an inputize here
         Ok(())
     }
 }

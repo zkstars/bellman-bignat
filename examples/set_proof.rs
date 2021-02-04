@@ -132,7 +132,28 @@ fn main() {
 /// Returns the proof, the time spent synthesizing the circuit and its inputs, and the time spent
 /// doing cryptography.
 
+fn create_random_proof<E, C, R, P: ParameterSource<E>>(
+    circuit: C,
+    params: P,
+    rng: &mut R,
+) -> Result<(Proof<E>, Duration, Duration), SynthesisError>
+    where
+        E: Engine,
+        C: Circuit<E>,
+        R: Rng,
+{
+    let synth_start = Instant::now();
+    let r = rng.gen();
+    let s = rng.gen();
+    let prover = prepare_prover(circuit)?;
+    let synth_end = Instant::now();
 
+    let crypto_start = Instant::now();
+    let proof = prover.create_proof(params, r, s)?;
+    let crypto_end = Instant::now();
+
+    Ok((proof, synth_end - synth_start, crypto_end - crypto_start))
+}
 fn rsa_bench<E: Engine, H: Hasher<F = E::Fr> + CircuitHasher<E = E>>(
     args: &Args,
     hash: H,
@@ -164,7 +185,7 @@ fn rsa_bench<E: Engine, H: Hasher<F = E::Fr> + CircuitHasher<E = E>>(
     };
 
     let empty_circuit = SetBench::<_, ExpSet<_, ParExpComb>> {
-        inputs: None,
+        : Noneinputs,
         params: params.clone(),
     };
     if args.flag_verbose {

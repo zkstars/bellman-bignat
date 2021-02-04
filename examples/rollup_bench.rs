@@ -3,16 +3,26 @@ extern crate docopt;
 extern crate rand;
 extern crate sapling_crypto;
 extern crate serde;
+use rand::{thread_rng, Rng};
 
 use bellman_bignat::hash::hashes::Poseidon;
 use bellman_bignat::rollup::{merkle, rsa};
-use bellman_bignat::util::bench::{ConstraintCounter, ConstraintProfiler};
+use bellman_bignat::util::bench::{ConstraintCounter, ConstraintProfiler, Engine};
 use docopt::Docopt;
 
 use sapling_crypto::bellman::pairing::bn256::Bn256;
 use sapling_crypto::bellman::Circuit;
-use sapling_crypto::alt_babyjubjub::AltJubjubBn256;
+use sapling_crypto::alt_babyjubjub::{AltJubjubBn256, JubjubEngine};
 use serde::Deserialize;
+
+
+use sapling_crypto::bellman::groth16::{
+    generate_random_parameters, prepare_prover, prepare_verifying_key, verify_proof,create_random_proof,
+    ParameterSource, Parameters, Proof,
+};
+use bellman_bignat::rollup::merkle::{RollupBenchInputs, RollupBench};
+use bellman_bignat::hash::Hasher;
+use std::ptr::null;
 
 const USAGE: &str = "
 Rollup Benchmarker
@@ -85,19 +95,58 @@ fn rsa_bench(t: usize, _c: usize, profile: bool) -> usize {
     }
 }
 
-fn merkle_bench(t: usize, c: usize, profile: bool) -> usize {
-    let circuit =
+
+// fn printStatus(inputs:RollupBenchInputs<E, H>)
+// where
+//     E:JubjubEngine,
+//     H:Hasher,
+// {
+//     println!("accounts:{}",inputs.unwrap().accounts);
+// }
+
+
+
+fn merkle_bench(t: usize, c: usize, profile: bool) ->  usize
+{
+
+    let rng = &mut thread_rng();
+    let circuit:RollupBench<Bn256,Poseidon<Bn256>> =
         merkle::RollupBench::<Bn256, _>::from_counts(c, t, AltJubjubBn256::new(), Poseidon::default());
 
-    println!("{:?}",circuit.input.unwrap());
-    if profile {
-        let mut cs = ConstraintProfiler::new();
-        circuit.synthesize(&mut cs).expect("synthesis failed");
-        cs.emit_as_json(&mut std::io::stdout()).unwrap();
-        cs.num_constraints()
-    } else {
-        let mut cs = ConstraintCounter::new();
-        circuit.synthesize(&mut cs).expect("synthesis failed");
-        cs.num_constraints()
+    println!("accounts:{}",circuit.clone().input.unwrap().accounts);
+    // 这里进行了第一次synethix
+    let params = generate_random_parameters(circuit.clone(),rng).unwrap();
+    println!("generate verifykey success{:?}",params.vk.delta_g1);
+    println!("ic length is = {}",&params.vk.ic.len());
+
+
+
+
+    //
+    // println!("===================");
+    // println!("{}",circuit.clone().input.unwrap().accounts);
+    // //
+    // //
+    // let pvk = prepare_verifying_key(&params.vk);
+    // // println!("",pvk);//GET IC
+    //
+    // println!("ic length is = {}",&params.vk.ic.len());
+    // //
+    // let proof = create_random_proof(circuit, &params, rng);
+    //
+    // let success =
+    //     verify_proof(&pvk, &proof.unwrap(), &[]).expect("cannot verify proof");
+    // assert!(success);
+    1
+}
+
+
+fn fetch_input(&) -> Result<(Vec<<Self::E as ScalarEngine>::Fr>),SynthesisError> {
+    let values = self.wire_values();
+    let mut inputVec:Vec<<Self::E as ScalarEngine>::Fr> = vec![];
+    for (i, w) in self.wires().into_iter().enumerate() {
+        let in_=values.as_ref().grab()?[i].clone();
+        inputVec.push(in_);
     }
+    Ok((inputVec))
 }
