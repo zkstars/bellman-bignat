@@ -227,7 +227,7 @@ where
         access: Self::Access,
         params: &Self::Params,
     ) -> Result<Self, SynthesisError> {
-        let mut value = value.cloned();
+        let mut value = value.cloned();// TODO check here.
         let digest = AllocatedNum::alloc(cs.namespace(|| "digest"), || {
             Ok(value
                 .as_mut()
@@ -278,7 +278,6 @@ where
             .enumerate()
         {
             let mut cs = cs.namespace(|| format!("swap {}", j));
-            println!("check remove {}",j);
             // First, we allocate the path
             let witness = self.value.as_ref().and_then(|v| {
                 old.values
@@ -304,7 +303,6 @@ where
                     })
                     .collect::<Result<Vec<(Boolean, AllocatedNum<E>)>, SynthesisError>>()?
             };
-            println!("get path success");
             // Now, check the old item
             {
                 let mut cs = cs.namespace(|| "check old");

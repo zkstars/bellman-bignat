@@ -29,6 +29,7 @@ use sapling_crypto::circuit::Assignment;
 use std::fmt;
 use serde::export::Formatter;
 use std::iter::FromIterator;
+use util::bench::Variable;
 
 #[derive(Derivative)]
 #[derivative(Clone(bound = ""))]
@@ -38,7 +39,7 @@ where
     H: Hasher,
 {
     map: HashMap<Vec<u8>, Account<E>>,
-    set: MerkleSet<H>,
+    pub set: MerkleSet<H>,
 }
 
 
@@ -50,7 +51,7 @@ where
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f,"length {}",self.map.len());
         for account in self.map.values(){
-            write!(f,"account is :{:?}",account);
+            write!(f,"account is \n :{:?}",account);
         }
 
 
@@ -295,6 +296,7 @@ where
             params,
         }
     }
+
 }
 
 impl<E, H> Circuit<E> for RollupBench<E, H>
@@ -353,7 +355,7 @@ where
             inserted_accounts.push(dst_final);
         }
 
-        println!("success at account changed");
+
         let hasher = self.params.set_params.hasher.clone();
         let insertions = inserted_accounts
             .into_iter()
@@ -364,17 +366,13 @@ where
             .map(|act| act.as_elems())
             .collect::<Vec<_>>();
 
-        println!("remove& insert success");
+        // TODO fetch input here?
         let set = MerkleCircuitSet::alloc(
             cs.namespace(|| "set init"),
             self.input.as_ref().map(|is| &is.accounts.set),
             hasher,
             &self.params.set_params.depth,
         )?;
-        println!("init set");
-
-
-
 
         set.inputize(cs.namespace(|| "initial_state input"))?;//a haha,,, here
         let new_set = set.swap_all(
@@ -392,4 +390,5 @@ where
         new_set.inputize(cs.namespace(|| "final_state input"))?;// haha
         Ok(())
     }
+
 }

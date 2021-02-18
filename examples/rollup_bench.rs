@@ -20,9 +20,12 @@ use sapling_crypto::bellman::groth16::{
     generate_random_parameters, prepare_prover, prepare_verifying_key, verify_proof,create_random_proof,
     ParameterSource, Parameters, Proof,
 };
-use bellman_bignat::rollup::merkle::{RollupBenchInputs, RollupBench};
+use bellman_bignat::rollup::merkle::{RollupBenchInputs, RollupBench, Accounts};
 use bellman_bignat::hash::Hasher;
 use std::ptr::null;
+use bellman_bignat::set::GenSet;
+use bellman_bignat::hash::circuit::MaybeHashed;
+use bellman_bignat::rollup::tx::Account;
 
 const USAGE: &str = "
 Rollup Benchmarker
@@ -117,36 +120,37 @@ fn merkle_bench(t: usize, c: usize, profile: bool) ->  usize
     // 这里进行了第一次synethix
     let params = generate_random_parameters(circuit.clone(),rng).unwrap();
     println!("generate verifykey success{:?}",params.vk.delta_g1);
+
+    let mut set_init = circuit.clone().input.unwrap().accounts.set;
+    let init_input = set_init.digest();
+
+    // calculate final digest.
+
+    let final_digest = {
+        let input_account = circuit.clone().input.unwrap().accounts;
+        let input_tx = circuit.clone().input.unwrap().transactions;
+        let mut accounts :Accounts<Bn256,Poseidon<Bn256>>= input_account.clone();
+        for t in &input_tx {
+            accounts.apply_tx(&t.tx);
+        }
+        accounts.set.digest()
+    };
+
+    println!("===================");
+    println!("{}",circuit.clone().input.unwrap().accounts);
+    let pvk = prepare_verifying_key(&params.vk);
+
     println!("ic length is = {}",&params.vk.ic.len());
+    //3 ( one , init hash, final hash)
+
+    let proof = create_random_proof(circuit, &params, rng);
+
+    let success =
+        verify_proof(&pvk, &proof.unwrap(), &[init_input,final_digest]).expect("cannot verify proof");
+    assert!(success);
+    println!("do we prove it? {}",success);
 
 
 
-
-    //
-    // println!("===================");
-    // println!("{}",circuit.clone().input.unwrap().accounts);
-    // //
-    // //
-    // let pvk = prepare_verifying_key(&params.vk);
-    // // println!("",pvk);//GET IC
-    //
-    // println!("ic length is = {}",&params.vk.ic.len());
-    // //
-    // let proof = create_random_proof(circuit, &params, rng);
-    //
-    // let success =
-    //     verify_proof(&pvk, &proof.unwrap(), &[]).expect("cannot verify proof");
-    // assert!(success);
     1
-}
-
-
-fn fetch_input(&) -> Result<(Vec<<Self::E as ScalarEngine>::Fr>),SynthesisError> {
-    let values = self.wire_values();
-    let mut inputVec:Vec<<Self::E as ScalarEngine>::Fr> = vec![];
-    for (i, w) in self.wires().into_iter().enumerate() {
-        let in_=values.as_ref().grab()?[i].clone();
-        inputVec.push(in_);
-    }
-    Ok((inputVec))
 }
