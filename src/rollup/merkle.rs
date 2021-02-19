@@ -27,7 +27,7 @@ use std::sync::Arc;
 use sapling_crypto::circuit::Assignment;
 //use util::test_helpers::PrimeField;
 use std::fmt;
-use serde::export::Formatter;
+use std::fmt::Formatter;
 use std::iter::FromIterator;
 use util::bench::Variable;
 
