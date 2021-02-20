@@ -9,3 +9,9 @@ pub mod verbose;
 #[cfg(test)]
 #[macro_use]
 pub mod test_helpers;
+pub mod parse_bellman;
+pub mod solidity;
+
+
+
+

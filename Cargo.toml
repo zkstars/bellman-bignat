@@ -17,6 +17,9 @@ sapling-crypto = { package = "sapling-crypto_ce", git = "https://github.com/alex
 serde = { version = "1", features = ["derive"] }
 sha2 = "0.8.0"
 time = "0.1"
+lazy_static = "1.4"
+regex = "0.2"
+serde_json = "1.0"
 
 [dev-dependencies]
 quickcheck = "0.8"

@@ -366,7 +366,6 @@ where
             .map(|act| act.as_elems())
             .collect::<Vec<_>>();
 
-        // TODO fetch input here?
         let set = MerkleCircuitSet::alloc(
             cs.namespace(|| "set init"),
             self.input.as_ref().map(|is| &is.accounts.set),

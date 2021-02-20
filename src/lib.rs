@@ -13,8 +13,12 @@ extern crate test;
 #[macro_use]
 extern crate derivative;
 extern crate rug;
-extern crate serde;
 extern crate sha2;
+#[macro_use]
+extern crate lazy_static;
+extern crate serde; // serialization deserialization
+extern crate regex;
+extern crate serde_json;
 
 #[cfg(test)]
 extern crate quickcheck;
@@ -31,6 +35,9 @@ pub mod mp;
 pub mod rollup;
 pub mod set;
 pub mod wesolowski;
+
+
+use serde::{Deserialize, Serialize};
 
 use sapling_crypto::bellman::SynthesisError;
 

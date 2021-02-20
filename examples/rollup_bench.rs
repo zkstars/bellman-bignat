@@ -3,7 +3,10 @@ extern crate docopt;
 extern crate rand;
 extern crate sapling_crypto;
 extern crate serde;
+
+use std::fs::File;
 use rand::{thread_rng, Rng};
+use sapling_crypto::bellman::pairing::ff::to_hex;
 
 use bellman_bignat::hash::hashes::Poseidon;
 use bellman_bignat::rollup::{merkle, rsa};
@@ -26,6 +29,12 @@ use std::ptr::null;
 use bellman_bignat::set::GenSet;
 use bellman_bignat::hash::circuit::MaybeHashed;
 use bellman_bignat::rollup::tx::Account;
+
+use bellman_bignat::util::parse_bellman::{parse_vk, parse_g1, parse_g2, VerificationKey, ProofPoints, parse_proof, write_vk, parse_fr, AProof, parse_input, write_proof};
+use bellman_bignat::util::solidity::{export_solidity_verifier,write_sol};
+use std::io::{Write, Error};
+use std::path::Path;
+
 
 const USAGE: &str = "
 Rollup Benchmarker
@@ -115,17 +124,14 @@ fn merkle_bench(t: usize, c: usize, profile: bool) ->  usize
     let rng = &mut thread_rng();
     let circuit:RollupBench<Bn256,Poseidon<Bn256>> =
         merkle::RollupBench::<Bn256, _>::from_counts(c, t, AltJubjubBn256::new(), Poseidon::default());
-
-    println!("accounts:{}",circuit.clone().input.unwrap().accounts);
     // 这里进行了第一次synethix
     let params = generate_random_parameters(circuit.clone(),rng).unwrap();
-    println!("generate verifykey success{:?}",params.vk.delta_g1);
+
 
     let mut set_init = circuit.clone().input.unwrap().accounts.set;
-    let init_input = set_init.digest();
+    let init_digest = set_init.digest();
 
     // calculate final digest.
-
     let final_digest = {
         let input_account = circuit.clone().input.unwrap().accounts;
         let input_tx = circuit.clone().input.unwrap().transactions;
@@ -137,20 +143,58 @@ fn merkle_bench(t: usize, c: usize, profile: bool) ->  usize
     };
 
     println!("===================");
-    println!("{}",circuit.clone().input.unwrap().accounts);
+    // println!("{}",circuit.clone().input.unwrap().accounts);
     let pvk = prepare_verifying_key(&params.vk);
 
-    println!("ic length is = {}",&params.vk.ic.len());
-    //3 ( one , init hash, final hash)
+    println!("init hash :{}",to_hex(&init_digest));
+    println!("last hash :{}",to_hex(&final_digest));
 
-    let proof = create_random_proof(circuit, &params, rng);
+    // save vk
+    let vk = parse_vk(&params);
+    println!("{}",&vk.to_string());
+    write_vk(&vk);
 
-    let success =
-        verify_proof(&pvk, &proof.unwrap(), &[init_input,final_digest]).expect("cannot verify proof");
-    assert!(success);
-    println!("do we prove it? {}",success);
+    // geterate verifier contract
+    let verifier = export_solidity_verifier(vk);
+    write_sol(verifier);
 
+
+    //Generate proof
+    let proof = create_random_proof(circuit, &params, rng).unwrap();
+    let ProofPoints = parse_proof(&proof);
+
+    let inputs = parse_input::<Bn256>(&[init_digest, final_digest].to_vec());
+
+    //write proof.json. ready to onchain verify.
+    let a_proof = AProof::new(ProofPoints,inputs);
+    write_proof(a_proof);
+
+    //
+    //
+    // let success =
+    //     verify_proof(&pvk, &proof, &[init_digest,final_digest]).expect("cannot verify proof");
+    // assert!(success);
+    // println!("do we prove it? {}",success);
 
 
     1
 }
+
+
+
+
+
+// fn write_proof(vk:)->Result<bool,String>{
+//     const VERIFICATION_KEY_DEFAULT_PATH: &str = "verification.key";
+//     let output_path = Path::new(VERIFICATION_KEY_DEFAULT_PATH);
+//     let mut vk_file = File::create(output_path)
+//         .map_err(|why| format!("couldn't create {}: {}", output_path.display(), why))?;
+//     vk_file
+//         .write(
+//             serde_json::to_string_pretty(vk)
+//                 .unwrap()
+//                 .as_bytes(),
+//         )
+//         .map_err(|why| format!("couldn't write to {}: {}", output_path.display(), why))?;
+//     Ok(true)
+// }
